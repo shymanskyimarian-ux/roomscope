@@ -1,0 +1,640 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Roomscope — Scan a room</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#080808;
+    --bg-2:#0e0f11;
+    --card:#121316;
+    --line:rgba(255,255,255,0.08);
+    --line-2:rgba(255,255,255,0.14);
+    --text:#F2F3F5;
+    --muted:#9a9ea6;
+    --muted-2:#6b6f77;
+    --green:#76B900;
+    --green-bright:#93d61f;
+    --green-glow:rgba(118,185,0,0.35);
+    --red:#e5533d;
+    --font-display:'Archivo','Arial Narrow',system-ui,sans-serif;
+    --font-body:'Inter',system-ui,-apple-system,sans-serif;
+    --font-mono:'JetBrains Mono','SFMono-Regular',Consolas,monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{background:var(--bg);color:var(--text);font-family:var(--font-body);line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  a{color:inherit;text-decoration:none}
+  ::selection{background:var(--green);color:#000}
+  .container{max-width:1180px;margin:0 auto;padding:0 clamp(1.25rem,4vw,2.5rem)}
+
+  .eyebrow{font-family:var(--font-mono);font-size:.72rem;letter-spacing:.22em;text-transform:uppercase;color:var(--green);display:inline-flex;align-items:center;gap:.6rem}
+  .eyebrow::before{content:"";width:20px;height:9px;background:var(--green);transform:skewX(-20deg);display:inline-block;box-shadow:0 0 12px var(--green-glow)}
+
+  .btn{display:inline-flex;align-items:center;gap:.5rem;font-family:var(--font-display);font-weight:700;font-size:.95rem;letter-spacing:.01em;padding:.85rem 1.5rem;border-radius:2px;border:1px solid transparent;cursor:pointer;transition:transform .18s ease, box-shadow .18s ease, background .18s ease, color .18s ease}
+  .btn-primary{background:var(--green);color:#050505}
+  .btn-primary:hover{background:var(--green-bright);box-shadow:0 0 0 1px var(--green), 0 8px 30px var(--green-glow);transform:translateY(-1px)}
+  .btn-primary:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
+  .btn-ghost{background:transparent;color:var(--text);border-color:var(--line-2)}
+  .btn-ghost:hover{border-color:var(--green);color:var(--green);transform:translateY(-1px)}
+  .btn:focus-visible{outline:2px solid var(--green-bright);outline-offset:3px}
+
+  .nav{position:fixed;top:0;left:0;right:0;z-index:100;height:66px;display:flex;align-items:center;background:rgba(8,8,8,0.82);backdrop-filter:blur(14px);border-bottom:1px solid var(--line)}
+  .nav .container{display:flex;align-items:center;justify-content:space-between;width:100%}
+  .brand{display:flex;align-items:center;gap:.6rem;font-family:var(--font-display);font-weight:800;letter-spacing:.06em;font-size:1.05rem}
+  .brand .mark{width:16px;height:16px;background:var(--green);transform:skewX(-18deg);box-shadow:0 0 14px var(--green-glow)}
+  .nav-note{font-family:var(--font-mono);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted-2)}
+  .nav-note b{color:var(--green)}
+
+  main{padding-top:66px;min-height:100vh}
+  .app-shell{padding:clamp(2.5rem,6vw,4.5rem) 0 5rem}
+  .app-head h1{font-family:var(--font-display);font-weight:900;font-size:clamp(1.9rem,4vw,3rem);letter-spacing:-0.02em;line-height:1.02;margin:1rem 0 .8rem}
+  .app-head h1 .accent{color:var(--green)}
+  .app-head p{color:var(--muted);max-width:38rem}
+
+  /* stepper */
+  .stepper{display:flex;gap:0;margin:2.6rem 0 2.2rem;border:1px solid var(--line);background:var(--card)}
+  .stp{flex:1;padding:.9rem 1.1rem;font-family:var(--font-mono);font-size:.72rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted-2);border-right:1px solid var(--line);position:relative;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .stp:last-child{border-right:none}
+  .stp b{color:inherit;font-weight:700;margin-right:.55rem}
+  .stp.active{color:var(--text)}
+  .stp.active b{color:var(--green)}
+  .stp.active::after{content:"";position:absolute;left:0;bottom:0;height:2px;width:100%;background:var(--green);box-shadow:0 0 12px var(--green-glow)}
+  .stp.done{color:var(--muted)}
+  .stp.done b{color:var(--green)}
+
+  /* panels */
+  .panel{display:none}
+  .panel.on{display:block;animation:panelIn .45s cubic-bezier(.2,.7,.3,1)}
+  @keyframes panelIn{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
+  .grid-2{display:grid;grid-template-columns:1.05fr 1fr;gap:clamp(1.6rem,3.5vw,3rem);align-items:start}
+
+  .card{background:var(--card);border:1px solid var(--line);padding:1.8rem 1.7rem 2rem;border-radius:3px}
+  .card h3{font-family:var(--font-display);font-weight:700;font-size:1.15rem;margin-bottom:1.2rem;display:flex;align-items:center;gap:.6rem}
+  .card h3 .tag{font-family:var(--font-mono);font-size:.64rem;letter-spacing:.14em;color:var(--green);text-transform:uppercase;border:1px solid rgba(118,185,0,.4);padding:.15rem .5rem}
+
+  label{display:block;font-family:var(--font-mono);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted-2);margin:0 0 .45rem}
+  .fld{margin-bottom:1.15rem}
+  input[type=number],input[type=text],select{
+    width:100%;background:var(--bg-2);border:1px solid var(--line-2);color:var(--text);
+    font-family:var(--font-mono);font-size:.95rem;padding:.7rem .85rem;border-radius:2px;outline:none;
+    transition:border-color .18s ease, box-shadow .18s ease;
+  }
+  input:focus,select:focus{border-color:var(--green);box-shadow:0 0 0 1px var(--green)}
+  select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 18px) 55%,calc(100% - 13px) 55%;background-size:5px 5px;background-repeat:no-repeat}
+  .row-3{display:grid;grid-template-columns:repeat(3,1fr);gap:.9rem}
+  .row-2{display:grid;grid-template-columns:1fr 1fr;gap:.9rem}
+  .hint{font-size:.78rem;color:var(--muted-2);margin-top:.35rem;font-family:var(--font-body);text-transform:none;letter-spacing:0}
+
+  /* photo drop */
+  .drop{border:1px dashed var(--line-2);background:var(--bg-2);border-radius:3px;min-height:210px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:.6rem;cursor:pointer;transition:border-color .18s ease;position:relative;overflow:hidden;text-align:center;padding:1rem}
+  .drop:hover{border-color:var(--green)}
+  .drop .di{font-family:var(--font-mono);font-size:.72rem;letter-spacing:.14em;text-transform:uppercase;color:var(--green)}
+  .drop .dt{color:var(--muted);font-size:.9rem;max-width:22rem}
+  .drop img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  .drop .rescan{position:absolute;bottom:10px;right:10px;font-family:var(--font-mono);font-size:.66rem;letter-spacing:.1em;background:rgba(8,8,8,.85);border:1px solid var(--line-2);padding:.35rem .6rem;color:var(--text);text-transform:uppercase}
+
+  /* scan overlay */
+  .scanbox{position:relative;border:1px solid var(--line);background:radial-gradient(120% 90% at 50% 0%, rgba(118,185,0,0.06), transparent 60%), var(--bg-2);border-radius:3px;overflow:hidden;min-height:300px}
+  .scanbox .corner-tag{position:absolute;top:12px;left:14px;font-family:var(--font-mono);font-size:.66rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted-2);z-index:3}
+  .scanbox .corner-tag b{color:var(--green)}
+  .scanbox img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.85}
+  .scanbox svg.wire{position:absolute;inset:0;width:100%;height:100%}
+  .scanline{position:absolute;left:0;right:0;top:2%;height:2px;background:linear-gradient(90deg,transparent,var(--green),transparent);box-shadow:0 0 18px 2px var(--green-glow);z-index:2;animation:scan 1.9s ease-in-out infinite}
+  @keyframes scan{0%{top:3%;opacity:0}10%{opacity:1}90%{opacity:1}100%{top:96%;opacity:0}}
+  .scan-log{position:absolute;left:14px;bottom:12px;font-family:var(--font-mono);font-size:.7rem;color:var(--muted);z-index:3;line-height:1.9}
+  .scan-log .ok{color:var(--green-bright)}
+
+  /* readout (estimate table) */
+  .readout{background:#0b0c0e;border:1px solid var(--line-2);border-radius:3px;font-family:var(--font-mono);font-size:.82rem;overflow:hidden}
+  .readout .rhead{background:#101114;border-bottom:1px solid var(--line);padding:.7rem 1rem;color:var(--green);letter-spacing:.08em;font-size:.72rem;display:flex;justify-content:space-between;text-transform:uppercase}
+  .readout .rbody{padding:1rem 1.1rem}
+  .readout .row{display:flex;justify-content:space-between;gap:1rem;padding:.32rem 0;color:var(--muted)}
+  .readout .row .n{flex:1;min-width:0}
+  .readout .row .q{color:var(--muted-2);white-space:nowrap}
+  .readout .row .v{color:var(--text);white-space:nowrap}
+  .readout .row.flag .v{color:var(--muted-2)}
+  .readout .row.sub{border-top:1px solid var(--line);margin-top:.6rem;padding-top:.7rem}
+  .readout .row.total{color:var(--text);font-weight:700}
+  .readout .row.total .v{color:var(--green-bright)}
+  .readout .rfoot{border-top:1px solid var(--line);padding:.6rem 1.1rem;font-size:.66rem;color:var(--muted-2);letter-spacing:.05em}
+
+  /* scope checkboxes */
+  .scope-item{display:flex;align-items:flex-start;gap:.8rem;padding:.85rem .9rem;border:1px solid var(--line);background:var(--bg-2);margin-bottom:.7rem;border-radius:2px;cursor:pointer;transition:border-color .15s ease}
+  .scope-item:hover{border-color:var(--line-2)}
+  .scope-item.checked{border-color:var(--green)}
+  .scope-item input{margin-top:.3rem;accent-color:var(--green);width:15px;height:15px;flex:0 0 auto}
+  .scope-item .sn{font-family:var(--font-display);font-weight:700;font-size:.98rem}
+  .scope-item .sd{color:var(--muted);font-size:.84rem}
+  .scope-item .conf{font-family:var(--font-mono);font-size:.64rem;color:var(--green);letter-spacing:.1em;text-transform:uppercase;margin-left:.5rem}
+
+  .callout{border:1px solid var(--line-2);border-left:3px solid var(--green);background:var(--bg-2);padding:1rem 1.2rem;font-size:.9rem;color:var(--muted);margin:1.2rem 0;border-radius:2px}
+  .callout b{color:var(--text)}
+  .callout.danger{border-left-color:var(--red)}
+  .callout.danger b{color:var(--red)}
+
+  /* instructions */
+  .inst{margin-top:1.4rem}
+  .inst details{border:1px solid var(--line);background:var(--card);margin-bottom:.7rem;border-radius:2px}
+  .inst summary{cursor:pointer;list-style:none;padding:1rem 1.2rem;font-family:var(--font-display);font-weight:700;display:flex;align-items:center;gap:.7rem}
+  .inst summary::before{content:"+";font-family:var(--font-mono);color:var(--green);font-weight:700}
+  .inst details[open] summary::before{content:"–"}
+  .inst .ibody{padding:0 1.2rem 1.2rem;color:var(--muted);font-size:.93rem}
+  .inst ol{margin:.4rem 0 .4rem 1.2rem}
+  .inst li{padding:.22rem 0}
+  .inst li b{color:var(--text)}
+
+  .actions{display:flex;gap:1rem;flex-wrap:wrap;margin-top:1.8rem}
+  .mini{font-family:var(--font-mono);font-size:.68rem;letter-spacing:.1em;color:var(--muted-2);text-transform:uppercase}
+
+  .foot{padding:2.5rem 0;border-top:1px solid var(--line);margin-top:3rem}
+  .foot .container{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:1rem}
+  .foot .fnote{font-family:var(--font-mono);font-size:.72rem;color:var(--muted-2)}
+
+  @media(max-width:900px){
+    .grid-2{grid-template-columns:1fr}
+    .stepper{flex-direction:column}
+    .stp{border-right:none;border-bottom:1px solid var(--line)}
+    .stp:last-child{border-bottom:none}
+  }
+  @media(max-width:560px){.row-3{grid-template-columns:1fr}.row-2{grid-template-columns:1fr}}
+
+  @media(prefers-reduced-motion:reduce){
+    html{scroll-behavior:auto}
+    *{animation:none!important;transition:none!important}
+    .scanline{display:none}
+  }
+
+  /* print: estimate only, light */
+  @media print{
+    body{background:#fff;color:#111}
+    .nav,.stepper,.actions,.foot,.app-head p,.callout{display:none!important}
+    .panel{display:none!important}
+    #panel-3.on{display:block!important}
+    .readout{background:#fff;border-color:#bbb;color:#111}
+    .readout .rhead{background:#f2f2f2;color:#333;border-color:#ccc}
+    .readout .row{color:#333}
+    .readout .row .v{color:#111}
+    .readout .row.total .v{color:#111}
+    .readout .rfoot{color:#666;border-color:#ccc}
+    .inst details{border-color:#ccc;background:#fff}
+    .inst details[open] .ibody{color:#333}
+    .inst summary{color:#111}
+    .card{background:#fff;border-color:#ccc;color:#111}
+    .app-head h1{color:#111}
+    .app-head h1 .accent{color:#4a7d00}
+  }
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="container">
+    <a class="brand" href="index.html"><span class="mark"></span>ROOMSCOPE</a>
+    <div class="nav-note">MVP DEMO · <b>VISION MOCKED · SEED PRICES</b></div>
+  </div>
+</header>
+
+<main>
+  <div class="container app-shell">
+    <div class="app-head">
+      <span class="eyebrow">Scan a room</span>
+      <h1>Photo in. <span class="accent">Priced plan out.</span></h1>
+      <p>Enter real measurements — every quantity is computed in code from your numbers, and every price comes from the catalog. Nothing is invented.</p>
+    </div>
+
+    <div class="stepper" id="stepper">
+      <div class="stp active" data-s="1"><b>01</b>Snap &amp; measure</div>
+      <div class="stp" data-s="2"><b>02</b>Confirm the scope</div>
+      <div class="stp" data-s="3"><b>03</b>Priced plan</div>
+    </div>
+
+    <!-- STEP 1 -->
+    <section class="panel on" id="panel-1">
+      <div class="grid-2">
+        <div class="card">
+          <h3>Room details <span class="tag">your numbers drive the math</span></h3>
+          <div class="fld">
+            <label for="roomType">Room type</label>
+            <select id="roomType">
+              <option value="living_room">Living room</option>
+              <option value="bedroom">Bedroom</option>
+              <option value="office">Home office</option>
+              <option value="dining_room">Dining room</option>
+              <option value="hallway">Hallway</option>
+            </select>
+          </div>
+          <div class="fld row-3">
+            <div><label for="len">Length (ft)</label><input id="len" type="number" min="3" max="60" step="0.5" value="16"></div>
+            <div><label for="wid">Width (ft)</label><input id="wid" type="number" min="3" max="60" step="0.5" value="13"></div>
+            <div><label for="hei">Height (ft)</label><input id="hei" type="number" min="6" max="20" step="0.5" value="9"></div>
+          </div>
+          <div class="fld row-3">
+            <div><label for="doors">Doors</label><input id="doors" type="number" min="0" max="8" step="1" value="2"></div>
+            <div><label for="windows">Windows</label><input id="windows" type="number" min="0" max="12" step="1" value="3"></div>
+            <div>
+              <label for="region">Region</label>
+              <select id="region">
+                <option value="national">National avg</option>
+                <option value="TX" selected>Texas</option>
+                <option value="CA">California</option>
+                <option value="NY">New York</option>
+                <option value="FL">Florida</option>
+              </select>
+            </div>
+          </div>
+          <div class="fld">
+            <label for="other">Anything else you want done? <span style="text-transform:none;letter-spacing:0">(optional)</span></label>
+            <input id="other" type="text" placeholder="e.g. move an outlet, fix a leaky faucet...">
+            <div class="hint">Work that needs a licensed pro — electrical, plumbing, gas, structural — gets flagged, never DIY-instructed.</div>
+          </div>
+          <button class="btn btn-primary" id="toScan" style="width:100%;justify-content:center;margin-top:.4rem">Analyze the room →</button>
+        </div>
+
+        <div class="card">
+          <h3>Room photo <span class="tag">optional in demo</span></h3>
+          <div class="drop" id="drop">
+            <input id="file" type="file" accept="image/*" hidden>
+            <span class="di">// drop a photo or click</span>
+            <span class="dt">In this MVP demo the vision step is simulated — your photo is previewed locally and never leaves the browser.</span>
+          </div>
+          <div class="callout" style="margin-bottom:0">
+            <b>How this stays honest:</b> the AI only classifies what it sees. Quantities are pure geometry from your measurements; prices come from a seed catalog with regional multipliers. Unmatched items are flagged — never guessed.
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 2 -->
+    <section class="panel" id="panel-2">
+      <div class="grid-2">
+        <div>
+          <div class="scanbox" id="scanbox">
+            <div class="corner-tag">ROOMSCOPE&nbsp;·&nbsp;<b id="scanState">SCANNING</b></div>
+            <img id="scanImg" alt="" style="display:none">
+            <svg class="wire" id="wireSvg" viewBox="0 0 600 460" preserveAspectRatio="xMidYMid meet">
+              <defs>
+                <pattern id="grid2" width="30" height="30" patternUnits="userSpaceOnUse">
+                  <path d="M30 0 H0 V30" fill="none" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>
+                </pattern>
+              </defs>
+              <rect width="600" height="460" fill="url(#grid2)"/>
+              <rect x="162" y="62" width="276" height="188" fill="rgba(118,185,0,0.05)" stroke="rgba(255,255,255,0.13)" stroke-width="1.5"/>
+              <path d="M162 250 L438 250 L518 410 L82 410 Z" fill="rgba(118,185,0,0.06)" stroke="rgba(255,255,255,0.13)" stroke-width="1.5"/>
+              <rect x="210" y="95" width="80" height="80" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1.2"/>
+              <rect x="360" y="120" width="46" height="130" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1.2"/>
+            </svg>
+            <div class="scanline" id="scanline"></div>
+            <div class="scan-log" id="scanLog"></div>
+          </div>
+          <div class="readout" style="margin-top:1.2rem">
+            <div class="rhead"><span>VISION READOUT</span><span id="visConf">—</span></div>
+            <div class="rbody" id="visBody">
+              <div class="row"><span class="n">Waiting for scan…</span></div>
+            </div>
+            <div class="rfoot">MVP: mocked classifier · production: multimodal model returning schema-validated JSON</div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Confirm the scope <span class="tag">human-in-the-loop</span></h3>
+          <p style="color:var(--muted);font-size:.92rem;margin-bottom:1.1rem">Nothing is priced until you approve it. Untick anything you don't want — pricing runs only on the work you confirm.</p>
+          <div id="scopeList"></div>
+          <div class="callout danger" id="licensedWarn" style="display:none"></div>
+          <div class="actions">
+            <button class="btn btn-ghost" id="back1">← Back</button>
+            <button class="btn btn-primary" id="toEstimate" disabled>Price the confirmed scope →</button>
+          </div>
+          <div class="mini" style="margin-top:1rem" id="scopeMeta"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STEP 3 -->
+    <section class="panel" id="panel-3">
+      <div class="grid-2">
+        <div>
+          <div class="readout">
+            <div class="rhead"><span>ROOMSCOPE ESTIMATE</span><span id="estMeta">—</span></div>
+            <div class="rbody" id="estBody"></div>
+            <div class="rfoot" id="estFoot"></div>
+          </div>
+          <div class="callout">
+            <b>Read it like a contractor would:</b> quantities include documented waste/coverage assumptions (2 paint coats · 350 sqft/gal · 10% flooring overage). Flagged lines had no catalog match — verify locally, we don't invent prices.
+          </div>
+          <div class="actions">
+            <button class="btn btn-ghost" id="back2">← Adjust scope</button>
+            <button class="btn btn-primary" id="printBtn">Print / save as PDF</button>
+            <button class="btn btn-ghost" id="restart">Start over</button>
+          </div>
+        </div>
+        <div>
+          <h3 style="font-family:var(--font-display);font-weight:700;font-size:1.15rem;margin-bottom:1rem">Step-by-step plan</h3>
+          <div class="inst" id="instList"></div>
+          <div class="mini" style="margin-top:.6rem">MVP: fixed playbooks per work type · production: LLM writes steps bounded to the confirmed, non-licensed scope</div>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer class="foot">
+  <div class="container">
+    <a class="brand" href="index.html" style="font-size:.95rem"><span class="mark"></span>ROOMSCOPE</a>
+    <div class="fnote">LLM writes language · Python-grade math prices the job · catalog supplies prices</div>
+  </div>
+</footer>
+
+<script>
+/* =====================================================================
+   Roomscope MVP — faithful JS port of renovation_core.py
+   LLM/vision -> language & classification ONLY (mocked in this demo)
+   Code       -> ALL arithmetic (quantities, money, totals)
+   Catalog    -> real prices; unmatched items are FLAGGED, never guessed
+   ===================================================================== */
+
+// ---- 1. SCOPE ----
+const ALLOWED_WORK = new Set(["interior_painting","drywall_repair","spackling","flooring_laminate","flooring_vinyl_plank","baseboard_trim","caulking"]);
+const LICENSED_WORK = ["electrical","plumbing","gas","hvac","structural","load bearing","load_bearing","roofing","asbestos","mold","wiring","outlet","breaker","panel","faucet","leak","pipe","drain","water heater","furnace","boiler"];
+
+// ---- 2. GEOMETRY ----
+const DOOR_AREA_SQFT = 21.0, WINDOW_AREA_SQFT = 15.0;
+function roomSpec(rt,L,W,H,doors,windows){
+  const floor = L*W;
+  const gross = 2*(L+W)*H;
+  const paintable = Math.max(gross - doors*DOOR_AREA_SQFT - windows*WINDOW_AREA_SQFT, 0);
+  return {room_type:rt, length_ft:L, width_ft:W, height_ft:H, doors, windows,
+          floor_area_sqft:floor, gross_wall_area_sqft:gross, paintable_wall_area_sqft:paintable};
+}
+
+// ---- 3. MATERIALS (deterministic) ----
+const PAINT_COVERAGE = 350.0, PAINT_COATS = 2, SPACKLE_COVERAGE = 100.0, FLOORING_WASTE = 0.10;
+const r1 = x => Math.round(x*10)/10, r2 = x => Math.round(x*100)/100;
+
+function materialsForPainting(room){
+  const gallons = Math.ceil(room.paintable_wall_area_sqft*PAINT_COATS/PAINT_COVERAGE);
+  const primer  = Math.ceil(room.paintable_wall_area_sqft/PAINT_COVERAGE);
+  return [
+    {sku:"interior latex wall paint", name:"Interior wall paint", unit:"gallon", qty:gallons},
+    {sku:"interior primer", name:"Primer", unit:"gallon", qty:primer},
+    {sku:"painter's tape 2in", name:"Painter's tape", unit:"roll", qty:Math.max(1,Math.round(room.paintable_wall_area_sqft/200))},
+    {sku:"roller kit 9in", name:"Roller + tray kit", unit:"kit", qty:1},
+    {sku:"drop cloth 9x12", name:"Drop cloth", unit:"each", qty:1},
+  ];
+}
+function materialsForFlooring(room, productSku, productName){
+  return [
+    {sku:productSku, name:productName, unit:"sqft", qty:r1(room.floor_area_sqft*(1+FLOORING_WASTE))},
+    {sku:"underlayment", name:"Underlayment", unit:"sqft", qty:r1(room.floor_area_sqft)},
+    {sku:"flooring spacers kit", name:"Spacers", unit:"kit", qty:1},
+    {sku:"transition strip", name:"Transition strip", unit:"each", qty:Math.max(1,room.doors)},
+  ];
+}
+function materialsForSpackle(room){
+  return [
+    {sku:"spackle compound", name:"Spackling compound", unit:"quart", qty:Math.ceil(room.paintable_wall_area_sqft/SPACKLE_COVERAGE)},
+    {sku:"sanding sponge", name:"Sanding sponge", unit:"each", qty:2},
+    {sku:"putty knife set", name:"Putty knife set", unit:"set", qty:1},
+  ];
+}
+
+// ---- 4. PRICING (seed catalog; unmatched -> flagged) ----
+const REGION_MULTIPLIER = {national:1.00, TX:0.95, CA:1.20, NY:1.18, FL:0.98};
+const CATALOG_AS_OF = "2026-01";
+const SEED = {
+  "interior latex wall paint":34.0, "interior primer":24.0, "painter's tape 2in":7.0,
+  "roller kit 9in":18.0, "drop cloth 9x12":9.0, "vinyl plank flooring":2.80,
+  "laminate flooring":2.20, "underlayment":0.45, "transition strip":14.0,
+  "spackle compound":12.0, "sanding sponge":4.0, "putty knife set":15.0,
+  // "flooring spacers kit" intentionally missing -> honest fallback demo
+};
+function catalogLookup(query, region){
+  const q = query.toLowerCase();
+  let base = null;
+  for (const [k,p] of Object.entries(SEED)){ if (q.includes(k) || k.includes(q)) { base = p; break; } }
+  if (base === null) return {price:null, source:"unavailable", asOf:CATALOG_AS_OF};
+  const mult = REGION_MULTIPLIER[region] ?? REGION_MULTIPLIER.national;
+  return {price:r2(base*mult), source:"seed-catalog", asOf:CATALOG_AS_OF};
+}
+function priceMaterials(lines, region){
+  return lines.map(ln => {
+    const {price, source, asOf} = catalogLookup(ln.sku, region);
+    return price === null
+      ? {...ln, unit_price:0, source, asOf, line_total:0, available:false}
+      : {...ln, unit_price:price, source, asOf, line_total:r2(price*ln.qty), available:true};
+  });
+}
+function summarize(priced){
+  const subtotal = r2(priced.reduce((s,p)=>s+p.line_total,0));
+  const tax = r2(subtotal*0.08), contingency = r2(subtotal*0.10);
+  return {subtotal, tax, contingency, total:r2(subtotal+tax+contingency)};
+}
+
+// ---- 5. SAFETY GATE ----
+function safetyCheck(freeText){
+  if (!freeText) return null;
+  const t = freeText.toLowerCase();
+  const hits = [...new Set(LICENSED_WORK.filter(k => t.includes(k)))];
+  if (!hits.length) return null;
+  return `Detected work that needs a licensed professional (${hits.join(", ")}). Roomscope won't generate DIY instructions for it — bring in a licensed contractor for that part. Everything below covers only the cosmetic scope.`;
+}
+
+// ---- 6. MOCK VISION (language/classification only — no numbers) ----
+const VISION_PRESETS = {
+  living_room:{condition:"dated paint, minor wall dents, worn carpet", work:["interior_painting","spackling","flooring_vinyl_plank"], conf:0.7},
+  bedroom:{condition:"scuffed walls, tired trim, aging carpet", work:["interior_painting","spackling","flooring_laminate"], conf:0.72},
+  office:{condition:"nail holes from shelving, flat builder paint", work:["interior_painting","spackling"], conf:0.68},
+  dining_room:{condition:"scratched floor, dull walls", work:["interior_painting","flooring_vinyl_plank"], conf:0.66},
+  hallway:{condition:"scuffs and dents along both walls", work:["interior_painting","spackling"], conf:0.74},
+};
+const WORK_META = {
+  interior_painting:{n:"Interior painting", d:"Walls, two coats over primer where needed."},
+  spackling:{n:"Wall repair / spackling", d:"Patch dents and nail holes, sand smooth."},
+  flooring_vinyl_plank:{n:"Vinyl plank flooring", d:"Floating LVP over underlayment."},
+  flooring_laminate:{n:"Laminate flooring", d:"Click-lock laminate over underlayment."},
+};
+
+// ---- 7. INSTRUCTION PLAYBOOKS (fixed in MVP; LLM-generated in production) ----
+const PLAYBOOKS = {
+  spackling:{t:"Wall repair & spackling", steps:[
+    ["Clear and inspect","Move furniture off the walls, mark every dent, hole and nail pop with painter's tape."],
+    ["Fill","Press spackle into each defect with the putty knife; slightly overfill. Deep holes get two passes."],
+    ["Dry","Give it the full dry time on the tub — rushing this ruins the sanding."],
+    ["Sand","Feather each patch flush with the sanding sponge; run your palm over it — it should disappear."],
+    ["Dust off","Wipe the walls down; dust under paint reads as bumps in raking light."],
+  ]},
+  interior_painting:{t:"Interior painting", steps:[
+    ["Protect","Drop cloth down, tape the trim, ceiling line and outlets."],
+    ["Prime","Spot-prime patches and stains; full-prime if changing color drastically."],
+    ["Cut in","Brush a 2–3 inch band along ceilings, corners and trim, one wall at a time."],
+    ["Roll coat one","Roll in a W pattern, keep a wet edge, work top to bottom."],
+    ["Roll coat two","After the recoat window (check the can), lay the second coat perpendicular where possible."],
+    ["Detape","Pull tape at a 45° angle while the last coat is barely tacky for a clean line."],
+  ]},
+  flooring_vinyl_plank:{t:"Vinyl plank flooring", steps:[
+    ["Acclimate","Store planks flat in the room 48h; flooring moves with temperature."],
+    ["Prep subfloor","Pull the old floor, scrape residue, check flat within 3/16\" over 10 ft."],
+    ["Underlayment","Roll it out seam-to-seam, tape joints, no overlaps."],
+    ["First row","Start on the longest straight wall, spacers against the wall, tongue side out."],
+    ["Stagger","Offset end joints ≥ 6\"; use cut-offs to start rows and kill waste."],
+    ["Finish","Remove spacers, install transition strips at doorways, reattach baseboards."],
+  ]},
+  flooring_laminate:{t:"Laminate flooring", steps:[
+    ["Acclimate","48h flat in the room, unopened boxes."],
+    ["Prep subfloor","Clean, dry, flat; fix squeaks now, not after."],
+    ["Underlayment","Vapor-rated underlayment, taped seams."],
+    ["Rows","Click-lock at an angle, tap blocks only — never hammer the edge directly."],
+    ["Expansion gap","Keep the perimeter gap with spacers; laminate needs room to breathe."],
+    ["Finish","Transitions at doorways, quarter-round or baseboard to hide the gap."],
+  ]},
+};
+
+// ================= UI wiring =================
+const $ = id => document.getElementById(id);
+let state = {room:null, region:"TX", vision:null, photo:null, blockedMsg:null};
+
+function goto(step){
+  document.querySelectorAll(".panel").forEach(p=>p.classList.remove("on"));
+  $("panel-"+step).classList.add("on");
+  document.querySelectorAll(".stp").forEach(s=>{
+    const n = +s.dataset.s;
+    s.classList.toggle("active", n===step);
+    s.classList.toggle("done", n<step);
+  });
+  window.scrollTo({top:0, behavior:"smooth"});
+}
+
+// photo upload (local preview only)
+$("drop").addEventListener("click", ()=>$("file").click());
+$("file").addEventListener("change", e=>{
+  const f = e.target.files[0]; if(!f) return;
+  const rd = new FileReader();
+  rd.onload = ev=>{
+    state.photo = ev.target.result;
+    $("drop").innerHTML = `<img src="${state.photo}" alt="room photo"><span class="rescan">Click to replace</span>`;
+  };
+  rd.readAsDataURL(f);
+});
+
+// step 1 -> scan
+$("toScan").addEventListener("click", ()=>{
+  const L=+$("len").value, W=+$("wid").value, H=+$("hei").value;
+  const doors=+$("doors").value, windows=+$("windows").value;
+  if(!(L>=3&&L<=60&&W>=3&&W<=60&&H>=6&&H<=20&&doors>=0&&windows>=0)){
+    alert("Check the dimensions — length/width 3–60 ft, height 6–20 ft."); return;
+  }
+  state.room = roomSpec($("roomType").value, L, W, H, doors, windows);
+  state.region = $("region").value;
+  state.blockedMsg = safetyCheck($("other").value);
+  goto(2);
+  runScan();
+});
+
+function runScan(){
+  const img = $("scanImg"), wire = $("wireSvg");
+  if(state.photo){ img.src=state.photo; img.style.display="block"; wire.style.opacity=.0; }
+  else { img.style.display="none"; wire.style.opacity=1; }
+  $("scanState").textContent="SCANNING"; $("scanline").style.display="block";
+  $("visBody").innerHTML = `<div class="row"><span class="n">Analyzing…</span></div>`;
+  $("visConf").textContent="—";
+  $("scopeList").innerHTML=""; $("toEstimate").disabled=true;
+  const log = $("scanLog"); log.innerHTML="";
+  const lines = ["detecting surfaces…","reading condition…","matching work types…"];
+  lines.forEach((t,i)=> setTimeout(()=>{ log.innerHTML += `<div>${t} <span class="ok">ok</span></div>`; }, 500+i*550));
+  setTimeout(showVision, 500+lines.length*550+250);
+}
+
+function showVision(){
+  $("scanState").textContent="COMPLETE"; $("scanline").style.display="none";
+  const preset = VISION_PRESETS[state.room.room_type] || VISION_PRESETS.living_room;
+  state.vision = {room_type:state.room.room_type, condition:preset.condition, applicable_work:preset.work, confidence:preset.conf};
+  const r = state.room;
+  $("visConf").textContent = `CONFIDENCE ${state.vision.confidence.toFixed(2)}`;
+  $("visBody").innerHTML = `
+    <div class="row"><span class="n">Room type</span><span class="v">${r.room_type.replace(/_/g," ")}</span></div>
+    <div class="row"><span class="n">Condition</span><span class="v" style="text-align:right;max-width:60%">${state.vision.condition}</span></div>
+    <div class="row sub"><span class="n">Floor area</span><span class="v">${r.floor_area_sqft.toFixed(0)} sqft</span></div>
+    <div class="row"><span class="n">Gross wall area</span><span class="v">${r.gross_wall_area_sqft.toFixed(0)} sqft</span></div>
+    <div class="row"><span class="n">Paintable walls (− ${r.doors} doors · ${r.windows} windows)</span><span class="v">${r.paintable_wall_area_sqft.toFixed(0)} sqft</span></div>`;
+
+  // scope checkboxes: suggested work pre-checked, alternates offered
+  const offer = [...new Set([...state.vision.applicable_work,
+                 state.vision.applicable_work.includes("flooring_vinyl_plank") ? "flooring_laminate" :
+                 state.vision.applicable_work.includes("flooring_laminate") ? "flooring_vinyl_plank" : null].filter(Boolean))]
+                .filter(w=>ALLOWED_WORK.has(w) && WORK_META[w]);
+  $("scopeList").innerHTML = offer.map(w=>{
+    const sug = state.vision.applicable_work.includes(w);
+    return `<label class="scope-item ${sug?"checked":""}">
+      <input type="checkbox" data-w="${w}" ${sug?"checked":""}>
+      <span><span class="sn">${WORK_META[w].n}</span>${sug?`<span class="conf">vision · suggested</span>`:`<span class="conf" style="color:var(--muted-2)">alternative</span>`}<br><span class="sd">${WORK_META[w].d}</span></span>
+    </label>`;}).join("");
+  document.querySelectorAll("#scopeList input").forEach(cb=>{
+    cb.addEventListener("change", ()=>{
+      cb.closest(".scope-item").classList.toggle("checked", cb.checked);
+      syncScope();
+    });
+  });
+  if(state.blockedMsg){
+    $("licensedWarn").style.display="block";
+    $("licensedWarn").innerHTML = `<b>Safety gate:</b> ${state.blockedMsg}`;
+  } else $("licensedWarn").style.display="none";
+  syncScope();
+}
+
+function selectedWork(){
+  return [...document.querySelectorAll("#scopeList input:checked")].map(cb=>cb.dataset.w);
+}
+function syncScope(){
+  const sel = selectedWork();
+  $("toEstimate").disabled = sel.length===0;
+  $("scopeMeta").textContent = sel.length ? `${sel.length} work type(s) confirmed — pricing runs only on these` : "select at least one work type";
+}
+
+$("back1").addEventListener("click", ()=>goto(1));
+$("back2").addEventListener("click", ()=>goto(2));
+$("restart").addEventListener("click", ()=>goto(1));
+$("printBtn").addEventListener("click", ()=>window.print());
+
+// step 2 -> estimate (deterministic pipeline)
+$("toEstimate").addEventListener("click", ()=>{
+  const confirmed = new Set(selectedWork().filter(w=>ALLOWED_WORK.has(w)));
+  const room = state.room;
+  let lines = [];
+  if (confirmed.has("interior_painting")) lines = lines.concat(materialsForPainting(room));
+  if (confirmed.has("spackling")) lines = lines.concat(materialsForSpackle(room));
+  if (confirmed.has("flooring_vinyl_plank")) lines = lines.concat(materialsForFlooring(room,"vinyl plank flooring","Vinyl plank flooring"));
+  if (confirmed.has("flooring_laminate")) lines = lines.concat(materialsForFlooring(room,"laminate flooring","Laminate flooring"));
+
+  const priced = priceMaterials(lines, state.region);
+  const t = summarize(priced);
+  const fmt = n => "$"+n.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+
+  $("estMeta").textContent = `${room.room_type.replace(/_/g," ")} · ${state.region.toUpperCase()}`;
+  $("estBody").innerHTML =
+    priced.map(p=> p.available
+      ? `<div class="row"><span class="n">${p.name}</span><span class="q">${p.qty} ${p.unit} × ${fmt(p.unit_price)}</span><span class="v">${fmt(p.line_total)}</span></div>`
+      : `<div class="row flag"><span class="n">${p.name}</span><span class="q">${p.qty} ${p.unit}</span><span class="v">— verify locally</span></div>`
+    ).join("") +
+    `<div class="row sub"><span class="n">Materials subtotal</span><span class="v">${fmt(t.subtotal)}</span></div>
+     <div class="row"><span class="n">Est. tax (8%)</span><span class="v">${fmt(t.tax)}</span></div>
+     <div class="row"><span class="n">Contingency (10%)</span><span class="v">${fmt(t.contingency)}</span></div>
+     <div class="row total"><span class="n">MATERIALS TOTAL</span><span class="v">${fmt(t.total)}</span></div>`;
+  $("estFoot").textContent = `prices: seed-catalog · as of ${CATALOG_AS_OF} · region multiplier ${REGION_MULTIPLIER[state.region] ?? 1} (${state.region}) · assumptions: ${PAINT_COATS} coats · ${PAINT_COVERAGE.toFixed(0)} sqft/gal · ${FLOORING_WASTE*100}% flooring waste`;
+
+  // ordered playbooks: repair -> paint -> floor
+  const order = ["spackling","interior_painting","flooring_vinyl_plank","flooring_laminate"];
+  $("instList").innerHTML = order.filter(w=>confirmed.has(w)).map((w,i)=>{
+    const pb = PLAYBOOKS[w];
+    return `<details ${i===0?"open":""}><summary>${String(i+1).padStart(2,"0")} · ${pb.t}</summary>
+      <div class="ibody"><ol>${pb.steps.map(s=>`<li><b>${s[0]}.</b> ${s[1]}</li>`).join("")}</ol></div></details>`;
+  }).join("");
+  goto(3);
+});
+</script>
+</body>
+</html>
