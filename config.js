@@ -15,6 +15,6 @@ window.ROOMSCOPE_CONFIG = {
   PAYMENT_LINK: "",
   PRO_PRICE_LABEL: "$12 / month",
   PAYMENT_PROVIDER_LABEL: "Paddle", // shown in the upgrade-modal footnote
-  WEB3FORMS_KEY: "",                // feedback + waitlist delivery
-  GOATCOUNTER_CODE: "",             // e.g. "roomscope" → roomscope.goatcounter.com
+  WEB3FORMS_KEY: "e5274a11-49e4-46c5-9131-887c2124f4ae",  // feedback + waitlist delivery
+  GOATCOUNTER_CODE: "marian",                            // marian.goatcounter.com
 };
