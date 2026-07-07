@@ -281,7 +281,7 @@
       <a href="#pricing">Pricing</a>
     </nav>
     <div class="nav-cta">
-      <a href="app.html" class="nav-links" style="display:inline">Sign in</a>
+      <a href="app.html" class="nav-links" style="display:inline">Open the app</a>
       <a href="app.html" class="btn btn-primary">Scan a room</a>
     </div>
   </div>
@@ -294,7 +294,7 @@
       <div>
         <span class="eyebrow">AI renovation planner</span>
         <h1>Snap a room.<br>Get a <span class="accent">priced plan.</span></h1>
-        <p class="sub">Roomscope reads your space, lists every material, and prices the whole job for your zip code — step by step, with real numbers instead of guesses.</p>
+        <p class="sub">Roomscope reads your space, lists every material, and prices the whole job for your region — step by step, with real numbers instead of guesses.</p>
         <div class="hero-actions">
           <a href="app.html" class="btn btn-primary">Scan your first room →</a>
           <a href="#how" class="btn btn-ghost">See how it works</a>
@@ -381,7 +381,7 @@
         <div class="step">
           <div class="step-n">03</div>
           <h3>Get a priced plan</h3>
-          <p>Every material, a price for your zip code, and step-by-step instructions. Export the whole thing to a clean Word or PDF file.</p>
+          <p>Every material, a price for your region, and step-by-step instructions. Export the whole thing to a clean print-ready PDF.</p>
         </div>
       </div>
     </div>
@@ -399,7 +399,7 @@
         <div class="feat">
           <div class="ic">// pricing</div>
           <h3>Real, localized prices</h3>
-          <p>Materials priced for your zip code from a live catalog. When an item can't be matched, it's flagged — never invented.</p>
+          <p>Materials priced for your region from the price catalog. When an item can't be matched, it's flagged — never invented.</p>
         </div>
         <div class="feat">
           <div class="ic">// vision</div>
@@ -424,7 +424,7 @@
         <div class="feat">
           <div class="ic">// export</div>
           <h3>Take the plan with you</h3>
-          <p>Send the full estimate, material list, and instructions to a clean Word or PDF file in one click.</p>
+          <p>Send the full estimate, material list, and instructions to a clean print-ready PDF in one click.</p>
         </div>
       </div>
     </div>
@@ -452,6 +452,21 @@
     </div>
   </section>
 
+  <!-- REVIEWS -->
+  <section class="sec" id="reviews">
+    <div class="container">
+      <div class="sec-head" data-reveal>
+        <span class="eyebrow">Field reports</span>
+        <h2>What early users say.</h2>
+        <p>Real feedback from people who priced a room with Roomscope. The wall shows top-rated reviews; every review counts toward making the tool better.</p>
+      </div>
+      <div id="reviewsWall" data-reveal></div>
+      <div style="margin-top:2rem" data-reveal>
+        <button class="btn btn-ghost" id="leaveReview">Leave a review</button>
+      </div>
+    </div>
+  </section>
+
   <!-- PRICING -->
   <section class="sec" id="pricing">
     <div class="container">
@@ -470,7 +485,7 @@
             <li>Rough estimate + price range</li>
             <li>Plan preview on screen</li>
             <li class="off">Per-item localized prices</li>
-            <li class="off">Word / PDF export</li>
+            <li class="off">PDF export</li>
             <li class="off">Saved home profile</li>
           </ul>
           <a href="app.html" class="btn btn-ghost">Scan a room</a>
@@ -482,13 +497,13 @@
           <div class="desc">The full plan, priced for where you live.</div>
           <ul>
             <li>Unlimited rooms</li>
-            <li>Real per-item prices for your zip</li>
+            <li>Real per-item prices for your region</li>
             <li>Full material list + quantities</li>
             <li>Step-by-step instructions</li>
-            <li>Word / PDF export</li>
-            <li>Saved home profile + history</li>
+            <li>PDF export</li>
+            <li>Saved home profile</li>
           </ul>
-          <a href="app.html" class="btn btn-primary">Go Pro</a>
+          <a href="app.html?pro=1" class="btn btn-primary">Go Pro</a>
         </div>
       </div>
     </div>
@@ -513,8 +528,8 @@
       <a href="#how">How it works</a>
       <a href="#features">Features</a>
       <a href="#pricing">Pricing</a>
-      <a href="#">Privacy</a>
-      <a href="#">Terms</a>
+      <a href="privacy.html">Privacy</a>
+      <a href="terms.html">Terms</a>
     </div>
     <div class="fnote">© 2026 · working name, rename freely</div>
   </div>
@@ -534,6 +549,13 @@
       entries.forEach(e => { if (e.isIntersecting){ e.target.classList.add('in'); io.unobserve(e.target); } });
     }, {threshold:0.14});
     document.querySelectorAll('[data-reveal]').forEach(el => { el.classList.add('reveal'); io.observe(el); });
+  }
+</script>
+<script src="reviews.js"></script>
+<script>
+  if (window.RoomscopeReviews) {
+    RoomscopeReviews.mountWall(document.getElementById('reviewsWall'), {minStars:4, max:6});
+    document.getElementById('leaveReview').addEventListener('click', () => RoomscopeReviews.openModal());
   }
 </script>
 </body>

@@ -150,6 +150,8 @@
   .inst li b{color:var(--text)}
 
   .actions{display:flex;gap:1rem;flex-wrap:wrap;margin-top:1.8rem}
+  .rs-upsell-btn{background:none;border:1px solid var(--green);color:var(--green);font-family:var(--font-mono);font-size:.7rem;letter-spacing:.08em;padding:.3rem .6rem;cursor:pointer;text-transform:uppercase;border-radius:2px}
+  .rs-upsell-btn:hover{background:var(--green);color:#050505}
   .mini{font-family:var(--font-mono);font-size:.68rem;letter-spacing:.1em;color:var(--muted-2);text-transform:uppercase}
 
   .foot{padding:2.5rem 0;border-top:1px solid var(--line);margin-top:3rem}
@@ -163,6 +165,7 @@
     .stp:last-child{border-bottom:none}
   }
   @media(max-width:560px){.row-3{grid-template-columns:1fr}.row-2{grid-template-columns:1fr}}
+  @media(max-width:760px){#demoNote{display:none}}
 
   @media(prefers-reduced-motion:reduce){
     html{scroll-behavior:auto}
@@ -173,7 +176,7 @@
   /* print: estimate only, light */
   @media print{
     body{background:#fff;color:#111}
-    .nav,.stepper,.actions,.foot,.app-head p,.callout{display:none!important}
+    .nav,.stepper,.actions,.foot,.app-head p,.callout,#previewMount,.rs-upsell-btn{display:none!important}
     .panel{display:none!important}
     #panel-3.on{display:block!important}
     .readout{background:#fff;border-color:#bbb;color:#111}
@@ -196,7 +199,11 @@
 <header class="nav">
   <div class="container">
     <a class="brand" href="index.html"><span class="mark"></span>ROOMSCOPE</a>
-    <div class="nav-note">MVP DEMO · <b>VISION MOCKED · SEED PRICES</b></div>
+    <div style="display:flex;align-items:center;gap:1.2rem">
+      <div class="nav-note" id="demoNote">MVP DEMO · <b>VISION MOCKED · SEED PRICES</b></div>
+      <span class="nav-note" id="planBadge">PLAN: <b>FREE</b></span>
+      <button class="btn btn-primary" id="navUpgrade" style="padding:.5rem .95rem;font-size:.8rem">Go Pro</button>
+    </div>
   </div>
 </header>
 
@@ -258,8 +265,8 @@
 
         <div class="card">
           <h3>Room photo <span class="tag">optional in demo</span></h3>
+          <input id="file" type="file" accept="image/*" hidden>
           <div class="drop" id="drop">
-            <input id="file" type="file" accept="image/*" hidden>
             <span class="di">// drop a photo or click</span>
             <span class="dt">In this MVP demo the vision step is simulated — your photo is previewed locally and never leaves the browser.</span>
           </div>
@@ -317,6 +324,7 @@
 
     <!-- STEP 3 -->
     <section class="panel" id="panel-3">
+      <div id="previewMount" style="margin-bottom:1.8rem"></div>
       <div class="grid-2">
         <div>
           <div class="readout">
@@ -330,6 +338,7 @@
           <div class="actions">
             <button class="btn btn-ghost" id="back2">← Adjust scope</button>
             <button class="btn btn-primary" id="printBtn">Print / save as PDF</button>
+            <button class="btn btn-ghost" id="reviewBtn">Leave a review</button>
             <button class="btn btn-ghost" id="restart">Start over</button>
           </div>
         </div>
@@ -509,33 +518,59 @@ function goto(step){
   window.scrollTo({top:0, behavior:"smooth"});
 }
 
-// photo upload (local preview only)
-$("drop").addEventListener("click", ()=>$("file").click());
-$("file").addEventListener("change", e=>{
-  const f = e.target.files[0]; if(!f) return;
+// photo upload (local preview only; file input lives OUTSIDE #drop so replacing
+// the drop zone's content never destroys it)
+function setPhoto(dataUrl){
+  state.photo = dataUrl;
+  const drop = $("drop");
+  drop.innerHTML = "";
+  const img = document.createElement("img");
+  img.alt = "room photo"; img.src = dataUrl;
+  const tag = document.createElement("span");
+  tag.className = "rescan"; tag.textContent = "Click to replace";
+  drop.append(img, tag);
+}
+function readPhotoFile(f){
+  if (!f || !/^image\//.test(f.type)) return;
   const rd = new FileReader();
-  rd.onload = ev=>{
-    state.photo = ev.target.result;
-    $("drop").innerHTML = `<img src="${state.photo}" alt="room photo"><span class="rescan">Click to replace</span>`;
-  };
+  rd.onload = ev=>setPhoto(ev.target.result);
   rd.readAsDataURL(f);
-});
+}
+$("drop").addEventListener("click", ()=>$("file").click());
+$("file").addEventListener("change", e=>{ readPhotoFile(e.target.files[0]); e.target.value=""; });
+["dragover","dragenter"].forEach(t=>$("drop").addEventListener(t, e=>{ e.preventDefault(); $("drop").style.borderColor="var(--green)"; }));
+["dragleave","drop"].forEach(t=>$("drop").addEventListener(t, e=>{ e.preventDefault(); $("drop").style.borderColor=""; }));
+$("drop").addEventListener("drop", e=>{ readPhotoFile(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]); });
+// a stray drop anywhere else must not navigate the tab away and lose the form
+window.addEventListener("dragover", e=>e.preventDefault());
+window.addEventListener("drop", e=>e.preventDefault());
+
+// billing helpers (billing.js loads after this script; handlers fire later)
+const B = () => window.RoomscopeBilling;
+const isProPlan = () => !!(B() && B().isPro());
 
 // step 1 -> scan
+// Free = one room, but editing THIS room (typo in measurements, different photo)
+// stays free — only starting a fresh room after the free one is gated.
 $("toScan").addEventListener("click", ()=>{
+  if (B() && !state.activeProject && !B().canStartProject()){ B().gate("Unlimited rooms"); return; }
   const L=+$("len").value, W=+$("wid").value, H=+$("hei").value;
   const doors=+$("doors").value, windows=+$("windows").value;
-  if(!(L>=3&&L<=60&&W>=3&&W<=60&&H>=6&&H<=20&&doors>=0&&windows>=0)){
-    alert("Check the dimensions — length/width 3–60 ft, height 6–20 ft."); return;
+  if(!(L>=3&&L<=60&&W>=3&&W<=60&&H>=6&&H<=20&&Number.isInteger(doors)&&doors>=0&&doors<=8&&Number.isInteger(windows)&&windows>=0&&windows<=12)){
+    alert("Check the inputs — length/width 3–60 ft, height 6–20 ft, doors 0–8 and windows 0–12 (whole numbers)."); return;
   }
   state.room = roomSpec($("roomType").value, L, W, H, doors, windows);
   state.region = $("region").value;
   state.blockedMsg = safetyCheck($("other").value);
+  state.counted = state.activeProject ? state.counted : false;
+  state.activeProject = true;
+  state.projectSeq = (state.projectSeq||0)+1;
   goto(2);
   runScan();
 });
 
 function runScan(){
+  const seq = state.scanSeq = (state.scanSeq||0)+1; // stale timers from a previous scan bail out
   const img = $("scanImg"), wire = $("wireSvg");
   if(state.photo){ img.src=state.photo; img.style.display="block"; wire.style.opacity=.0; }
   else { img.style.display="none"; wire.style.opacity=1; }
@@ -545,8 +580,8 @@ function runScan(){
   $("scopeList").innerHTML=""; $("toEstimate").disabled=true;
   const log = $("scanLog"); log.innerHTML="";
   const lines = ["detecting surfaces…","reading condition…","matching work types…"];
-  lines.forEach((t,i)=> setTimeout(()=>{ log.innerHTML += `<div>${t} <span class="ok">ok</span></div>`; }, 500+i*550));
-  setTimeout(showVision, 500+lines.length*550+250);
+  lines.forEach((t,i)=> setTimeout(()=>{ if(state.scanSeq!==seq) return; log.innerHTML += `<div>${t} <span class="ok">ok</span></div>`; }, 500+i*550));
+  setTimeout(()=>{ if(state.scanSeq!==seq) return; showVision(); }, 500+lines.length*550+250);
 }
 
 function showVision(){
@@ -597,44 +632,159 @@ function syncScope(){
 
 $("back1").addEventListener("click", ()=>goto(1));
 $("back2").addEventListener("click", ()=>goto(2));
-$("restart").addEventListener("click", ()=>goto(1));
-$("printBtn").addEventListener("click", ()=>window.print());
+$("restart").addEventListener("click", ()=>{ state.activeProject = false; goto(1); });
+$("printBtn").addEventListener("click", ()=>{
+  if (B() && !B().gate("PDF export")) return;
+  window.print();
+});
 
 // step 2 -> estimate (deterministic pipeline)
-$("toEstimate").addEventListener("click", ()=>{
-  const confirmed = new Set(selectedWork().filter(w=>ALLOWED_WORK.has(w)));
-  const room = state.room;
+const fmt = n => "$"+n.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+const fmt0 = n => "$"+Math.round(n).toLocaleString("en-US");
+
+function computeEstimate(){
+  const room = state.room, confirmed = state.confirmed;
   let lines = [];
   if (confirmed.has("interior_painting")) lines = lines.concat(materialsForPainting(room));
   if (confirmed.has("spackling")) lines = lines.concat(materialsForSpackle(room));
   if (confirmed.has("flooring_vinyl_plank")) lines = lines.concat(materialsForFlooring(room,"vinyl plank flooring","Vinyl plank flooring"));
   if (confirmed.has("flooring_laminate")) lines = lines.concat(materialsForFlooring(room,"laminate flooring","Laminate flooring"));
-
   const priced = priceMaterials(lines, state.region);
-  const t = summarize(priced);
-  const fmt = n => "$"+n.toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+  return {priced, totals: summarize(priced)};
+}
+
+function renderEstimate(){
+  const room = state.room, pro = isProPlan();
+  const {priced, totals:t} = computeEstimate();
 
   $("estMeta").textContent = `${room.room_type.replace(/_/g," ")} · ${state.region.toUpperCase()}`;
-  $("estBody").innerHTML =
-    priced.map(p=> p.available
+  const rows = priced.map(p=> p.available
+    ? (pro
       ? `<div class="row"><span class="n">${p.name}</span><span class="q">${p.qty} ${p.unit} × ${fmt(p.unit_price)}</span><span class="v">${fmt(p.line_total)}</span></div>`
-      : `<div class="row flag"><span class="n">${p.name}</span><span class="q">${p.qty} ${p.unit}</span><span class="v">— verify locally</span></div>`
-    ).join("") +
-    `<div class="row sub"><span class="n">Materials subtotal</span><span class="v">${fmt(t.subtotal)}</span></div>
-     <div class="row"><span class="n">Est. tax (8%)</span><span class="v">${fmt(t.tax)}</span></div>
-     <div class="row"><span class="n">Contingency (10%)</span><span class="v">${fmt(t.contingency)}</span></div>
-     <div class="row total"><span class="n">MATERIALS TOTAL</span><span class="v">${fmt(t.total)}</span></div>`;
-  $("estFoot").textContent = `prices: seed-catalog · as of ${CATALOG_AS_OF} · region multiplier ${REGION_MULTIPLIER[state.region] ?? 1} (${state.region}) · assumptions: ${PAINT_COATS} coats · ${PAINT_COVERAGE.toFixed(0)} sqft/gal · ${FLOORING_WASTE*100}% flooring waste`;
+      : `<div class="row"><span class="n">${p.name}</span><span class="q">${p.qty} ${p.unit}</span><span class="v" style="color:var(--muted-2)">PRO</span></div>`)
+    : `<div class="row flag"><span class="n">${p.name}</span><span class="q">${p.qty} ${p.unit}</span><span class="v">— verify locally</span></div>`
+  ).join("");
+  const totalsHtml = pro
+    ? `<div class="row sub"><span class="n">Materials subtotal</span><span class="v">${fmt(t.subtotal)}</span></div>
+       <div class="row"><span class="n">Est. tax (8%)</span><span class="v">${fmt(t.tax)}</span></div>
+       <div class="row"><span class="n">Contingency (10%)</span><span class="v">${fmt(t.contingency)}</span></div>
+       <div class="row total"><span class="n">MATERIALS TOTAL</span><span class="v">${fmt(t.total)}</span></div>`
+    : `<div class="row sub total"><span class="n">ROUGH RANGE (incl. tax + contingency)</span><span class="v">${fmt0(t.total*0.88)} – ${fmt0(t.total*1.12)}</span></div>
+       <div class="row"><span class="n" style="color:var(--muted-2)">Exact quantities are shown; exact prices are Pro.</span><span class="v"><button class="rs-upsell-btn" id="unlockBtn">Unlock →</button></span></div>`;
+  $("estBody").innerHTML = rows + totalsHtml;
 
-  // ordered playbooks: repair -> paint -> floor
+  const notes = [];
+  if (state.paintChoice && state.confirmed.has("interior_painting")) notes.push(`wall color: ${state.paintChoice.paintName}`);
+  if (state.paintChoice && (state.confirmed.has("flooring_vinyl_plank") || state.confirmed.has("flooring_laminate"))) notes.push(`floor: ${state.paintChoice.floorName}`);
+  const paint = notes.length ? ` · ${notes.join(" · ")}` : "";
+  $("estFoot").textContent = `prices: seed-catalog · as of ${CATALOG_AS_OF} · region multiplier ${REGION_MULTIPLIER[state.region] ?? 1} (${state.region})${paint} · assumptions: ${PAINT_COATS} coats · ${PAINT_COVERAGE.toFixed(0)} sqft/gal · ${FLOORING_WASTE*100}% flooring waste`;
+  const unlock = document.getElementById("unlockBtn");
+  if (unlock) unlock.addEventListener("click", ()=>{ if (B()) B().gate("Real per-item prices"); });
+
+  // ordered playbooks: repair -> paint -> floor (preserve which ones the user opened)
+  const prevOpen = [...document.querySelectorAll("#instList details")].map(d=>d.open);
   const order = ["spackling","interior_painting","flooring_vinyl_plank","flooring_laminate"];
-  $("instList").innerHTML = order.filter(w=>confirmed.has(w)).map((w,i)=>{
+  $("instList").innerHTML = order.filter(w=>state.confirmed.has(w)).map((w,i)=>{
     const pb = PLAYBOOKS[w];
+    const body = pro
+      ? `<ol>${pb.steps.map(s=>`<li><b>${s[0]}.</b> ${s[1]}</li>`).join("")}</ol>`
+      : `<div style="padding:.3rem 0 .2rem"><span class="mini">${pb.steps.length} ordered steps · pro feature</span><br>
+         <button class="rs-upsell-btn rs-inst-unlock" style="margin-top:.7rem">Unlock step-by-step →</button></div>`;
     return `<details ${i===0?"open":""}><summary>${String(i+1).padStart(2,"0")} · ${pb.t}</summary>
-      <div class="ibody"><ol>${pb.steps.map(s=>`<li><b>${s[0]}.</b> ${s[1]}</li>`).join("")}</ol></div></details>`;
+      <div class="ibody">${body}</div></details>`;
   }).join("");
+  const detailsNow = [...document.querySelectorAll("#instList details")];
+  if (prevOpen.length === detailsNow.length) detailsNow.forEach((d,i)=>{ d.open = prevOpen[i]; });
+  document.querySelectorAll(".rs-inst-unlock").forEach(b=>b.addEventListener("click", ()=>{ if (B()) B().gate("Step-by-step instructions"); }));
+}
+
+function onPreviewChange(s){
+  state.paintChoice = s;
+  const hasV = state.confirmed.has("flooring_vinyl_plank"), hasL = state.confirmed.has("flooring_laminate");
+  // swap only when exactly one flooring type is confirmed (never silently drop
+  // a work type the user explicitly kept), and keep step-2 checkboxes in sync
+  if ((hasV?1:0)+(hasL?1:0) === 1){
+    const want = s.floorSku === "laminate flooring" ? "flooring_laminate" : "flooring_vinyl_plank";
+    const cur = hasL ? "flooring_laminate" : "flooring_vinyl_plank";
+    if (want !== cur){
+      state.confirmed.delete(cur); state.confirmed.add(want);
+      document.querySelectorAll("#scopeList input").forEach(cb=>{
+        if (cb.dataset.w===cur || cb.dataset.w===want){
+          cb.checked = cb.dataset.w===want;
+          cb.closest(".scope-item").classList.toggle("checked", cb.checked);
+        }
+      });
+      syncScope();
+    }
+  }
+  renderEstimate();
+}
+
+$("toEstimate").addEventListener("click", ()=>{
+  state.confirmed = new Set(selectedWork().filter(w=>ALLOWED_WORK.has(w)));
+  if (B() && !state.counted){ B().recordProject(); state.counted = true; }
+  if (isProPlan()){
+    try{ localStorage.setItem("roomscope_profile", JSON.stringify({
+      roomType:$("roomType").value, len:$("len").value, wid:$("wid").value, hei:$("hei").value,
+      doors:$("doors").value, windows:$("windows").value, region:$("region").value})); }catch(e){}
+  }
+  if (window.RoomscopePreview){
+    const pm = $("previewMount");
+    const wantFloor = state.confirmed.has("flooring_laminate") ? "laminate flooring"
+                    : state.confirmed.has("flooring_vinyl_plank") ? "vinyl plank flooring" : null;
+    const mountedForProject = pm.dataset.projectSeq === String(state.projectSeq||0);
+    const curState = mountedForProject ? RoomscopePreview.getState() : null;
+    // keep the live preview (and the user's paint choice) across scope round trips;
+    // remount only for a new/edited room or when confirmed flooring diverges from it
+    if (!mountedForProject || (wantFloor && curState && curState.floorSku !== wantFloor)){
+      RoomscopePreview.mount(pm, {
+        photoDataUrl: state.photo,
+        floorDefault: state.confirmed.has("flooring_laminate") ? "laminate" : "vinyl",
+        onChange: onPreviewChange
+      });
+      pm.dataset.projectSeq = String(state.projectSeq||0);
+    }
+    state.paintChoice = RoomscopePreview.getState();
+  }
+  renderEstimate();
   goto(3);
 });
+</script>
+<script src="config.js"></script>
+<script src="billing.js"></script>
+<script src="preview.js"></script>
+<script src="reviews.js"></script>
+<script>
+(function(){
+  function syncPlanUI(){
+    const pro = !!(window.RoomscopeBilling && RoomscopeBilling.isPro());
+    document.getElementById("planBadge").innerHTML = "PLAN: <b>" + (pro ? "PRO" : "FREE") + "</b>";
+    document.getElementById("navUpgrade").style.display = pro ? "none" : "";
+  }
+  syncPlanUI();
+  document.addEventListener("DOMContentLoaded", ()=>setTimeout(syncPlanUI, 0));
+  if (window.RoomscopeBilling){
+    document.getElementById("navUpgrade").addEventListener("click", ()=>RoomscopeBilling.openUpgrade());
+    if (new URLSearchParams(location.search).has("pro") && !RoomscopeBilling.isPro()) RoomscopeBilling.openUpgrade();
+  }
+  // printed plan should show every confirmed playbook, not just the open ones
+  window.addEventListener("beforeprint", ()=>document.querySelectorAll("#instList details").forEach(d=>{ d.open = true; }));
+  if (window.RoomscopeReviews){
+    document.getElementById("reviewBtn").addEventListener("click",
+      ()=>RoomscopeReviews.openModal({room: state.room ? state.room.room_type.replace(/_/g," ") : undefined}));
+  }
+  // Pro: saved home profile — prefill last room on return visits
+  try{
+    if (window.RoomscopeBilling && RoomscopeBilling.isPro()){
+      const prof = JSON.parse(localStorage.getItem("roomscope_profile") || "null");
+      if (prof){
+        if (prof.roomType) document.getElementById("roomType").value = prof.roomType;
+        [["len",prof.len],["wid",prof.wid],["hei",prof.hei],["doors",prof.doors],["windows",prof.windows],["region",prof.region]]
+          .forEach(([id,v])=>{ if (v != null && v !== "") document.getElementById(id).value = v; });
+      }
+    }
+  }catch(e){}
+})();
 </script>
 </body>
 </html>
