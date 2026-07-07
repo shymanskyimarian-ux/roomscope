@@ -26,10 +26,12 @@
 
   function cfg() {
     var c = window.ROOMSCOPE_CONFIG || {};
-    var link = typeof c.STRIPE_PAYMENT_LINK === "string" ? c.STRIPE_PAYMENT_LINK.trim() : "";
+    var link = typeof c.PAYMENT_LINK === "string" ? c.PAYMENT_LINK.trim()
+             : typeof c.STRIPE_PAYMENT_LINK === "string" ? c.STRIPE_PAYMENT_LINK.trim() : "";
     if (!/^https?:\/\//i.test(link)) link = ""; // only real URLs count
     var price = (typeof c.PRO_PRICE_LABEL === "string" && c.PRO_PRICE_LABEL.trim()) ? c.PRO_PRICE_LABEL.trim() : "$12 / month";
-    return { link: link, price: price };
+    var provider = (typeof c.PAYMENT_PROVIDER_LABEL === "string" && c.PAYMENT_PROVIDER_LABEL.trim()) ? c.PAYMENT_PROVIDER_LABEL.trim() : "";
+    return { link: link, price: price, provider: provider };
   }
 
   function esc(s) {
@@ -149,7 +151,7 @@
       triggerHtml +
       listHtml +
       ctaHtml +
-      '<div class="rs-b-foot">Payments handled by Stripe · cancel anytime</div>'
+      '<div class="rs-b-foot">' + (cfg().provider ? "Payments handled by " + esc(cfg().provider) + " · cancel anytime" : "Secure hosted checkout · cancel anytime") + "</div>"
     );
 
     var closeBtn = root.querySelector('[data-rs-b="close"]');
@@ -164,7 +166,7 @@
       '<div class="rs-b-actions">' +
         '<button type="button" class="btn btn-primary rs-b-autofocus" data-rs-b="continue">Continue</button>' +
       "</div>" +
-      '<div class="rs-b-foot">Payments handled by Stripe · cancel anytime</div>'
+      '<div class="rs-b-foot">' + (cfg().provider ? "Payments handled by " + esc(cfg().provider) + " · cancel anytime" : "Secure hosted checkout · cancel anytime") + "</div>"
     );
     var btn = root.querySelector('[data-rs-b="continue"]');
     if (btn) btn.addEventListener("click", closeModal);
