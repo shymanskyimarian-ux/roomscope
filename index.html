@@ -510,12 +510,27 @@
   </section>
 
   <!-- CTA -->
+  <style>
+    .waitlist{margin:2.2rem auto 0;display:flex;gap:.6rem;justify-content:center;flex-wrap:wrap;max-width:480px}
+    .waitlist input[type=email]{flex:1;min-width:220px;background:var(--bg-2);border:1px solid var(--line-2);color:var(--text);font-family:var(--font-mono);font-size:.9rem;padding:.82rem .9rem;border-radius:2px;outline:none;transition:border-color .18s ease, box-shadow .18s ease}
+    .waitlist input[type=email]:focus{border-color:var(--green);box-shadow:0 0 0 1px var(--green)}
+    .waitlist .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+    .waitlist-note{margin-top:1.6rem;color:var(--muted);font-size:.98rem}
+    .waitlist-status{margin-top:.85rem;font-family:var(--font-mono);font-size:.72rem;letter-spacing:.08em;color:var(--green-bright);min-height:1em}
+  </style>
   <section class="cta-band" id="cta">
     <div class="container">
       <div class="cta-inner" data-reveal>
         <span class="eyebrow" style="justify-content:center;display:inline-flex">Ready when you are</span>
         <h2>See your room, <span class="accent">priced to the last gallon.</span></h2>
         <a href="app.html" class="btn btn-primary" style="font-size:1.05rem;padding:1rem 2rem">Scan your first room →</a>
+        <p class="waitlist-note">Not ready to try it? Get a ping when localized pricing goes live — and help shape it.</p>
+        <form class="waitlist" id="waitlistForm" novalidate>
+          <input class="hp" type="text" name="botcheck" tabindex="-1" autocomplete="off" aria-hidden="true">
+          <input type="email" required placeholder="you@email.com" aria-label="Email for launch updates">
+          <button type="submit" class="btn btn-ghost">Notify me at launch</button>
+        </form>
+        <div class="waitlist-status" id="waitlistStatus" role="status" aria-live="polite"></div>
       </div>
     </div>
   </section>
@@ -552,11 +567,19 @@
     document.querySelectorAll('[data-reveal]').forEach(el => { el.classList.add('reveal'); io.observe(el); });
   }
 </script>
+<script src="config.js"></script>
+<script src="feedback.js"></script>
 <script src="reviews.js"></script>
 <script>
   if (window.RoomscopeReviews) {
     RoomscopeReviews.mountWall(document.getElementById('reviewsWall'), {minStars:4, max:6});
-    document.getElementById('leaveReview').addEventListener('click', () => RoomscopeReviews.openModal());
+    document.getElementById('leaveReview').addEventListener('click', () => {
+      if (window.RoomscopeFeedback) RoomscopeFeedback.event('leave-review-click');
+      RoomscopeReviews.openModal();
+    });
+  }
+  if (window.RoomscopeFeedback) {
+    RoomscopeFeedback.wireWaitlist(document.getElementById('waitlistForm'), document.getElementById('waitlistStatus'), 'landing');
   }
 </script>
 </body>

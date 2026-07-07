@@ -80,11 +80,13 @@
 
   label{display:block;font-family:var(--font-mono);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted-2);margin:0 0 .45rem}
   .fld{margin-bottom:1.15rem}
-  input[type=number],input[type=text],select{
+  input[type=number],input[type=text],input[type=email],select{
     width:100%;background:var(--bg-2);border:1px solid var(--line-2);color:var(--text);
     font-family:var(--font-mono);font-size:.95rem;padding:.7rem .85rem;border-radius:2px;outline:none;
     transition:border-color .18s ease, box-shadow .18s ease;
   }
+  .wl-hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+  #waitlistStatus{margin-top:.7rem;font-family:var(--font-mono);font-size:.72rem;letter-spacing:.08em;color:var(--green-bright);min-height:1em}
   input:focus,select:focus{border-color:var(--green);box-shadow:0 0 0 1px var(--green)}
   select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);background-position:calc(100% - 18px) 55%,calc(100% - 13px) 55%;background-size:5px 5px;background-repeat:no-repeat}
   .row-3{display:grid;grid-template-columns:repeat(3,1fr);gap:.9rem}
@@ -340,6 +342,16 @@
             <button class="btn btn-primary" id="printBtn">Print / save as PDF</button>
             <button class="btn btn-ghost" id="reviewBtn">Leave a review</button>
             <button class="btn btn-ghost" id="restart">Start over</button>
+          </div>
+          <div id="wlBox" style="margin-top:1.4rem;border:1px solid var(--line);background:var(--card);border-radius:3px;padding:1.1rem 1.2rem">
+            <div style="font-family:var(--font-mono);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;color:var(--green);margin-bottom:.5rem">// launch waitlist</div>
+            <p style="color:var(--muted);font-size:.9rem;margin-bottom:.85rem">Want real per-item local prices and PDF export when Pro goes live? Drop your email — and tell us what to fix first.</p>
+            <form class="waitlist" id="waitlistForm" novalidate style="display:flex;gap:.6rem;flex-wrap:wrap">
+              <input class="wl-hp" type="text" name="botcheck" tabindex="-1" autocomplete="off" aria-hidden="true">
+              <input type="email" required placeholder="you@email.com" aria-label="Email for launch updates" style="flex:1;min-width:200px;width:auto">
+              <button type="submit" class="btn btn-primary" style="flex:0 0 auto">Notify me</button>
+            </form>
+            <div id="waitlistStatus" role="status" aria-live="polite"></div>
           </div>
         </div>
         <div>
@@ -748,9 +760,11 @@ $("toEstimate").addEventListener("click", ()=>{
   }
   renderEstimate();
   goto(3);
+  if (window.RoomscopeFeedback) RoomscopeFeedback.event(isProPlan() ? "estimate-reached-pro" : "estimate-reached-free");
 });
 </script>
 <script src="config.js"></script>
+<script src="feedback.js"></script>
 <script src="billing.js"></script>
 <script src="preview.js"></script>
 <script src="reviews.js"></script>
@@ -764,8 +778,14 @@ $("toEstimate").addEventListener("click", ()=>{
   syncPlanUI();
   document.addEventListener("DOMContentLoaded", ()=>setTimeout(syncPlanUI, 0));
   if (window.RoomscopeBilling){
-    document.getElementById("navUpgrade").addEventListener("click", ()=>RoomscopeBilling.openUpgrade());
+    document.getElementById("navUpgrade").addEventListener("click", ()=>{
+      if (window.RoomscopeFeedback) RoomscopeFeedback.event("go-pro-click");
+      RoomscopeBilling.openUpgrade();
+    });
     if (new URLSearchParams(location.search).has("pro") && !RoomscopeBilling.isPro()) RoomscopeBilling.openUpgrade();
+  }
+  if (window.RoomscopeFeedback){
+    RoomscopeFeedback.wireWaitlist(document.getElementById("waitlistForm"), document.getElementById("waitlistStatus"), "app");
   }
   // printed plan should show every confirmed playbook, not just the open ones
   window.addEventListener("beforeprint", ()=>document.querySelectorAll("#instList details").forEach(d=>{ d.open = true; }));

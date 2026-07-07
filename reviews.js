@@ -428,6 +428,19 @@
       var all = readAll().slice();
       all.push(rec);
       save(all);
+      // Deliver to the owner's inbox as real inbound feedback (best-effort; no-op if unconfigured).
+      if (window.RoomscopeFeedback) {
+        RoomscopeFeedback.event(rec.stars >= lastMinStars ? "review-public" : "review-private");
+        RoomscopeFeedback.post({
+          subject: "Roomscope review · " + rec.stars + "★ · " + rec.room,
+          type: "review",
+          stars: rec.stars,
+          name: rec.name,
+          room: rec.room,
+          message: rec.text,
+          on_wall: rec.stars >= lastMinStars ? "yes" : "no (private feedback)"
+        });
+      }
       closeModal();
       refreshWall();
       // Honest wording: low ratings are stored as feedback, not shown on the wall.
